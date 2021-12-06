@@ -1,0 +1,26 @@
+{
+  "name": "h-cli-shared-utils",
+  "version": "0.0.0",
+  "description": "> TODO: description",
+  "author": "fuqiang1 <fuqiang1@sensetime,com>",
+  "homepage": "",
+  "license": "ISC",
+  "main": "lib/h-cli-shared-utils.js",
+  "directories": {
+    "lib": "lib",
+    "test": "__tests__"
+  },
+  "files": [
+    "lib"
+  ],
+  "publishConfig": {
+    "registry": "https://registry.nlark.com/"
+  },
+  "scripts": {
+    "test": "echo \"Error: run tests from root\" && exit 1"
+  },
+  "dependencies": {
+    "chalk": "^5.0.0",
+    "execa": "^6.0.0"
+  }
+}
