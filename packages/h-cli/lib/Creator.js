@@ -5,7 +5,8 @@ const PromptModuleAPI = require("./PromptModuleAPI");
 const inquirer = require("inquirer");
 const cloneDeep = require("lodash.clonedeep");
 const writeFileTree = require("./util/writeFileTree");
-const { chalk, execa } = require("h-cli-shared-utils");
+const { chalk, execa, loadModule } = require("h-cli-shared-utils");
+const Generator = require("./Generator");
 const isManualMode = (answers) => answers.preset === "__manual__";
 
 class Creator {
@@ -90,9 +91,23 @@ class Creator {
       "package.json": JSON.stringify(pkg, null, 2),
     });
     console.log(`🗃  Initializing git repository...`);
-    await run("git init -y");
+    await run("git", ["init"]);
     console.log(`⚙\u{fe0f} Installing CLI plugins. This might take a while...`);
-    await run("npm install");
+    await run("npm", ["install"]);
+    console.log(`🚀  Invoking generators...`); // 生成器
+    const plugins = await this.resolvePlugins(preset.plugins);
+    const generator = new Generator(context, { pkg, plugins });
+    await generator.generate();
+  }
+  resolvePlugins(rawPlugins) {
+    const plugins = [];
+    for (let id of Object.keys(rawPlugins)) {
+      // 获取插件下的generator文件夹下的index文件内容
+      const apply = loadModule(`${id}/generator`, this.context) || (() => {});
+      let options = rawPlugins[id] || {};
+      plugins.push({ id, apply, options });
+    }
+    return plugins;
   }
   async resolvePreset(name) {
     return this.getPresets()[name];
