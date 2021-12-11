@@ -1,2 +1,3 @@
-console.log("123");
-exports.a = 123;
+exports.chalk = require("chalk");
+// 开启线程执行
+exports.execa = require("execa");

@@ -3,6 +3,9 @@ const PromptModuleAPI = require("./PromptModuleAPI");
 
 // 询问
 const inquirer = require("inquirer");
+const cloneDeep = require("lodash.clonedeep");
+const writeFileTree = require("./util/writeFileTree");
+const { chalk, execa } = require("h-cli-shared-utils");
 const isManualMode = (answers) => answers.preset === "__manual__";
 
 class Creator {
@@ -15,8 +18,12 @@ class Creator {
     this.featurePrompt = featurePrompt;
     this.injectedPrompts = [];
     this.promptCompleteCbs = [];
+    this.run = this.run.bind(this); // 安装依赖
     const promptAPI = new PromptModuleAPI(this);
     promptModules.forEach((m) => m(promptAPI));
+  }
+  run(command, args) {
+    return execa(command, args, { cwd: this.context });
   }
   resolveIntroPrompts() {
     const presets = this.getPresets();
@@ -61,7 +68,39 @@ class Creator {
     return Object.assign({}, defaults.presets);
   }
   async create() {
-    let answers = await this.promptAndResolvePresets();
+    const { context, name, run } = this;
+    let preset = await this.promptAndResolvePresets();
+    preset = cloneDeep(preset);
+    preset.plugins["@vue/cli-service"] = Object.assign(
+      { projectName: name },
+      preset
+    );
+    console.log(`✨  Creating project in ${chalk.yellow(context)}.`);
+    const pkg = {
+      name,
+      version: "0.1.0",
+      private: true,
+      devDependencies: {},
+    };
+    const deps = Object.keys(preset.plugins);
+    deps.forEach((dep) => {
+      pkg.devDependencies[dep] = "latest";
+    });
+    await writeFileTree(context, {
+      "package.json": JSON.stringify(pkg, null, 2),
+    });
+    console.log(`🗃  Initializing git repository...`);
+    await run("git init -y");
+    console.log(`⚙\u{fe0f} Installing CLI plugins. This might take a while...`);
+    await run("npm install");
+  }
+  async resolvePreset(name) {
+    return this.getPresets()[name];
+  }
+  async promptAndResolvePresets(answers = null) {
+    if (!answers) {
+      answers = await inquirer.prompt(this.resolveFinalPrompts());
+    }
     let preset;
     if (answers.preset && answers.preset !== "__manual__") {
       preset = await this.resolvePreset(answers.preset);
@@ -72,14 +111,7 @@ class Creator {
       answers.features = answers.features || [];
       this.promptCompleteCbs.forEach((cb) => cb(answers, preset));
     }
-    console.log(preset, 99);
-  }
-  async resolvePreset(name) {
-    return this.getPresets()[name];
-  }
-  async promptAndResolvePresets() {
-    let answers = await inquirer.prompt(this.resolveFinalPrompts());
-    return answers;
+    return preset;
   }
   resolveFinalPrompts() {
     this.injectedPrompts.forEach((prompt) => {
